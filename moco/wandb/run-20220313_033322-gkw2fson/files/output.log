@@ -1,0 +1,33 @@
+=========================================================
+Epoch: 0
+=========================================================
+[34m[1mwandb[39m[22m: [33mWARNING[39m Symlinked 0 file into the W&B run directory, call wandb.save again to sync new files.
+pretrain:   0%|                                                                                                                                     | 0/442 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "moco.py", line 149, in <module>
+    Pretext(q_encoder, k_encoder, m, queue, n_queue, optimizer, n_epochs, criterion, pretext_loader, test_subjects, wb, device, SAVE_PATH, BATCH_SIZE)
+  File "/home2/vivek.talwar/ssl-models/moco/train.py", line 172, in Pretext
+    for index, (aug1, aug2) in enumerate(
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/tqdm/std.py", line 1185, in __iter__
+    for obj in iterable:
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 521, in __next__
+    data = self._next_data()
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1203, in _next_data
+    return self._process_data(data)
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1229, in _process_data
+    data.reraise()
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/torch/_utils.py", line 434, in reraise
+    raise exception
+KeyError: Caught KeyError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/torch/utils/data/_utils/worker.py", line 287, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 49, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 49, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "moco.py", line 82, in __getitem__
+    pos = data['data'] #(2, 3000)
+  File "/home2/vivek.talwar/miniconda3/envs/torch/lib/python3.8/site-packages/numpy/lib/npyio.py", line 259, in __getitem__
+    raise KeyError("%s is not a file in the archive" % key)
+KeyError: 'data is not a file in the archive'

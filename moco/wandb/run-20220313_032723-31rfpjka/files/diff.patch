@@ -1,0 +1,73 @@
+diff --git a/moco/loss.py b/moco/loss.py
+index b6c99bb..9cff4fd 100644
+--- a/moco/loss.py
++++ b/moco/loss.py
+@@ -3,7 +3,7 @@ import torch.nn.functional as F
+ 
+ class loss_fn(torch.nn.modules.loss._Loss):
+ 
+-    def __init__(self, device, T=1.0):
++    def __init__(self, device, T=0.5):
+         """
+         T: softmax temperature (default: 0.07)
+         """
+diff --git a/moco/moco.py b/moco/moco.py
+index f851909..297c0d4 100644
+--- a/moco/moco.py
++++ b/moco/moco.py
+@@ -138,9 +138,9 @@ wb = wandb.init(
+         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
+         save_code=True,
+         entity="sleep-staging",
+-        name="moco-single-epoch",
++        name="moco-single-epoch, T=0.5",
+     )
+-wb.save('ssl-models/simclr/*.py')
++wb.save('ssl-models/moco/*.py')
+ wb.watch([q_encoder],log='all',log_freq=500)
+ 
+ n_queue = 4096 # SIZE of the dictionary queue
+diff --git a/simclr/simclr.py b/simclr/simclr.py
+index 9770d46..771b4a6 100644
+--- a/simclr/simclr.py
++++ b/simclr/simclr.py
+@@ -14,7 +14,7 @@ import torch
+ from torch.utils.data import DataLoader, Dataset
+ 
+ 
+-PATH = '/scratch/sleepkfoldsame/'
++PATH = '/scratch/sslkfold/'
+ 
+ # Params
+ SAVE_PATH = "single-epoch-same.pth"
+@@ -131,7 +131,7 @@ wb = wandb.init(
+         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
+         save_code=True,
+         entity="sleep-staging",
+-        name="simclr-single-epoch",
++        name="simclr-single-epoch, T=1",
+     )
+ wb.save('ssl-models/simclr/*.py')
+ wb.watch([q_encoder],log='all',log_freq=500)
+diff --git a/simclr_ours/simclr.py b/simclr_ours/simclr.py
+index b546fce..6cbe1aa 100644
+--- a/simclr_ours/simclr.py
++++ b/simclr_ours/simclr.py
+@@ -14,7 +14,7 @@ import torch
+ from torch.utils.data import DataLoader, Dataset
+ 
+ 
+-PATH = '/scratch/sleepkfoldsame/'
++PATH = '/scratch/sslkfold/'
+ 
+ # Params
+ SAVE_PATH = "single-epoch-same.pth"
+@@ -131,7 +131,7 @@ wb = wandb.init(
+         notes="single-epoch, with BN, two projection heads, using logistic regression with saga solver, with lr=5e-4",
+         save_code=True,
+         entity="sleep-staging",
+-        name="simclr_ours-single-epoch",
++        name="simclr_ours-single-epoch, T=1",
+     )
+ wb.save('ssl-models/simclr/*.py')
+ wb.watch([q_encoder],log='all',log_freq=500)

@@ -20,8 +20,8 @@ class pretext_data(Dataset):
 
     def __init__(self, dataset,wh="pretext"):
         super(pretext_data,self).__init__()
-        dataset['samples'] = dataset['samples']
-        dataset['labels'] = dataset['labels']
+        dataset['samples'] = dataset['samples'][:500]
+        dataset['labels'] = dataset['labels'][:500]
         X_train = dataset["samples"]
         y_train = dataset["labels"]
 

@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 
-PATH = '/scratch/sslkfold/'
+PATH = '/mnt/scratch/sslkfold/'
 
 # Params
 SAVE_PATH = "single-epoch-same.pth"
@@ -133,7 +133,7 @@ wb = wandb.init(
         entity="sleep-staging",
         name="simsaim-single-epoch, T=0.5",
     )
-wb.save('ssl-models/sisaim/*.py')
+wb.save('ssl-models/simsaim/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)
 
 Pretext(q_encoder, optimizer, n_epochs, criterion, pretext_loader, test_subjects, wb, device, SAVE_PATH, BATCH_SIZE)

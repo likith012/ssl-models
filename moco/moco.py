@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 
-PATH = '/scratch/sslkfold/'
+PATH = '/mnt/scratch/sslkfold/'
 
 # Params
 SAVE_PATH = "single-epoch-same.pth"

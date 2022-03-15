@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 
-PATH = '/scratch/SLEEP_data/'
+PATH = '/scratch/SLEEP_data2/'
 
 # Params
 SAVE_PATH = "single-epoch-same.pth"
@@ -69,7 +69,7 @@ wb = wandb.init(
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
         save_code=True,
         entity="sleep-staging",
-        name="simclr-single-mulEEG-epochs, T=1",
+        name="simclr-mulEEG-epochs, T=1",
     )
 wb.save('ssl-models/simclr/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

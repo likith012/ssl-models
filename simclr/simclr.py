@@ -22,7 +22,7 @@ WEIGHT_DECAY = 1e-4
 BATCH_SIZE = 128
 lr = 5e-4
 n_epochs = 200
-NUM_WORKERS = 5
+NUM_WORKERS = 6
 N_DIM = 256
 EPOCH_LEN = 7
 
@@ -128,7 +128,7 @@ test_subjects = list(test_subjects.values())
 
 wb = wandb.init(
         project="WTM-ssl",
-        notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
+        notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4, augmentations_new",
         save_code=True,
         entity="sleep-staging",
         name="simclr, T=1",

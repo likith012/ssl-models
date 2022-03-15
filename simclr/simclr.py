@@ -127,11 +127,11 @@ test_subjects = list(test_subjects.values())
 ##############################################################################################################################
 
 wb = wandb.init(
-        project="WTM-ssl_models",
+        project="WTM-ssl",
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
         save_code=True,
         entity="sleep-staging",
-        name="simclr-single-epoch, T=1",
+        name="simclr, T=1",
     )
 wb.save('ssl-models/simclr/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

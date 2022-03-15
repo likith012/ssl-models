@@ -29,7 +29,7 @@ def evaluate(q_encoder, train_loader, test_loader, device):
             X_val = X_val.float()
             y_val = y_val.long()
             X_val = X_val.to(device)
-            emb_val.extend(q_encoder(X_val).cpu().tolist())
+            emb_val.extend(q_encoder(X_val, proj="mid").cpu().tolist())
             gt_val.extend(y_val.numpy().flatten())
     emb_val, gt_val = np.array(emb_val), np.array(gt_val)
 
@@ -40,7 +40,7 @@ def evaluate(q_encoder, train_loader, test_loader, device):
             X_test = X_test.float()
             y_test = y_test.long()
             X_test = X_test.to(device)
-            emb_test.extend(q_encoder(X_test).cpu().tolist())
+            emb_test.extend(q_encoder(X_test, proj="mid").cpu().tolist())
             gt_test.extend(y_test.numpy().flatten())
 
     emb_test, gt_test = np.array(emb_test), np.array(gt_test)
@@ -146,7 +146,6 @@ def Pretext(
     BATCH_SIZE
 ):
 
-    q_encoder.train()  # for dropout
 
     step = 0
     best_f1 = 0
@@ -167,7 +166,7 @@ def Pretext(
         for index, (aug1, aug2) in enumerate(
             tqdm(pretext_loader, desc="pretrain")
         ):
-
+            q_encoder.train()
             aug1 = aug1.float()
             aug2 = aug2.float()
 
@@ -176,8 +175,8 @@ def Pretext(
                 aug2.to(device),
             )  # (B, 7, 2, 3000)  (B, 7, 2, 3000) (B, 7, 2, 3000)
         
-            anc1_features = q_encoder(aug1, proj_first='yes') #(B, 128)
-            pos1_features = q_encoder(aug2, proj_first='yes')  # (B, 128)
+            anc1_features = q_encoder(aug1, proj = 'top') #(B, 128)
+            pos1_features = q_encoder(aug2, proj = 'top')  # (B, 128)
             
             # backprop
             loss = criterion(anc1_features, pos1_features)

@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 PATH = '/scratch/sslkfold/'
 
 # Params
-SAVE_PATH = "single-epoch-same.pth"
+SAVE_PATH = "simclr_all_epochs.pth"
 WEIGHT_DECAY = 1e-4
 BATCH_SIZE = 128
 lr = 5e-4
@@ -131,7 +131,7 @@ wb = wandb.init(
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4, augmentations_new",
         save_code=True,
         entity="sleep-staging",
-        name="simclr, T=1",
+        name="simclr-all, T=1",
     )
 wb.save('ssl-models/simclr/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

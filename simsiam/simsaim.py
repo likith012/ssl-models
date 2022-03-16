@@ -14,10 +14,10 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 
-PATH = '/mnt/scratch/sslkfold/'
+PATH = '/scratch/sslkfold/'
 
 # Params
-SAVE_PATH = "single-epoch-same.pth"
+SAVE_PATH = "simSiam_all_epochs.pth"
 WEIGHT_DECAY = 1e-4
 BATCH_SIZE = 128
 lr = 5e-4
@@ -127,11 +127,11 @@ test_subjects = list(test_subjects.values())
 ##############################################################################################################################
 
 wb = wandb.init(
-        project="WTM-ssl_models",
+        project="WTM-ssl",
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
         save_code=True,
         entity="sleep-staging",
-        name="simsaim-single-epoch, T=0.5",
+        name="simsaim-all, T=0.5",
     )
 wb.save('ssl-models/simsaim/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

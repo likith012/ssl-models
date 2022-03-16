@@ -48,13 +48,15 @@ def sleep_model(n_channels, input_size_samples, n_dim = 256):
                 nn.Linear(self.n_dim // 2, self.n_dim // 2, bias=True),
             )
             
-        def forward(self, x, proj_first='yes'):
+        def forward(self, x, proj='mid'):
             x = self.enc(x)
             
-            if proj_first == 'yes':
+            if proj == 'top':
                 x = self.p1(x)
                 return x
-            else:
+            elif proj == "mid":
                 return x
+            else:
+                raise Exception("Fix the projection heads")
             
     return Net(n_channels, n_dim)

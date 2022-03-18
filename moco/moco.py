@@ -139,7 +139,7 @@ wb = wandb.init(
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
         save_code=True,
         entity="sleep-staging",
-        name="moco-all, T=0.5",
+        name="mocov2-all, T=0.5",
     )
 wb.save('ssl-models/moco/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

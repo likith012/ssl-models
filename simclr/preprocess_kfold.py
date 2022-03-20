@@ -135,7 +135,7 @@ dataset = SleepPhysionet(
 
 preprocessors = [
     Preprocessor(lambda x: x * 1e6),
-    Preprocessor("filter", l_freq=None, h_freq=high_cut_hz, n_jobs=n_jobs),
+    Preprocessor("filter", l_freq=None, h_freq=high_cut_hz),
 ]
 
 # Transform the data

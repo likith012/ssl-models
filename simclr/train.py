@@ -189,12 +189,11 @@ def Pretext(
             loss.backward()
             optimizer.step()  # only update encoder_q
 
-            N = 1000
-            if (step + 1) % N == 0:
-                scheduler.step(sum(all_loss[-50:]))
-                lr = optimizer.param_groups[0]["lr"]
-                wandb.log({"ssl_lr": lr, "Epoch": epoch})
-            step += 1
+        if epoch>=40:
+            scheduler.step(sum(all_loss))
+            
+        lr = optimizer.param_groups[0]["lr"]
+        wandb.log({"ssl_lr": lr, "Epoch": epoch})
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 

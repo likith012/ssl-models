@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 PATH = '/scratch/sslkfold/'
 
 # Params
-SAVE_PATH = "Moco_all_epochs.pth"
+SAVE_PATH = "Moco_final.pth"
 WEIGHT_DECAY = 1e-4
 BATCH_SIZE = 128
 lr = 5e-4
@@ -80,7 +80,9 @@ class pretext_data(Dataset):
         
         path = self.file_path[index]
         data = np.load(path)
-        pos = data['data'] #(2, 3000)
+        pos = data['pos'] #(7, 2, 3000)
+        pos_len = len(pos) # 7
+        pos = pos[pos_len // 2] # (2, 3000)
         anc = copy.deepcopy(pos)
         
         # augment
@@ -139,7 +141,7 @@ wb = wandb.init(
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
         save_code=True,
         entity="sleep-staging",
-        name="mocov2-all, T=0.5",
+        name="mocov2-final, T=0.5",
     )
 wb.save('ssl-models/moco/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

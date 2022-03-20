@@ -206,12 +206,11 @@ def Pretext(
             for param_q, param_k in zip(q_encoder.parameters(), k_encoder.parameters()):
                 param_k.data = param_k.data * m + param_q.data * (1. - m)
 
-            N = 1000
-            if (step + 1) % N == 0:
-                scheduler.step(sum(all_loss[-50:]))
-                lr = optimizer.param_groups[0]["lr"]
-                wandb.log({"ssl_lr": lr, "Epoch": epoch})
-            step += 1
+        if epoch>=40:
+            scheduler.step(sum(all_loss))
+            
+        lr = optimizer.param_groups[0]["lr"]
+        wandb.log({"ssl_lr": lr, "Epoch": epoch})
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 

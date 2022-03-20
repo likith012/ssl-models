@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.sampler import Sampler
 from sklearn.utils import check_random_state
 
-PATH = '/scratch/sslkfold/'
+PATH = '/scratch/sleepkfold_allsamples/'
 DATA_PATH = '/scratch/'
 os.makedirs(PATH, exist_ok=True)
 
@@ -24,7 +24,6 @@ BATCH_SIZE = 1
 POS_MIN = 1
 NEG_MIN = 15
 EPOCH_LEN = 7
-NUM_SAMPLES = 500
 SUBJECTS = np.arange(83)
 RECORDINGS = [1, 2]
 
@@ -35,11 +34,9 @@ random_state = 1234
 n_jobs = 1
 sfreq = 100
 high_cut_hz = 30
-
 window_size_s = 30
 sfreq = 100
 window_size_samples = window_size_s * sfreq
-
 
 
 class SleepPhysionet(BaseConcatDataset):
@@ -188,17 +185,30 @@ print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 #######################################################################################################################################
 
 
-class PretextDataset(BaseConcatDataset):
+class RelativePositioningDataset(BaseConcatDataset):
     """BaseConcatDataset with __getitem__ that expects 2 indices and a target."""
 
     def __init__(self, list_of_ds, epoch_len=7):
         super().__init__(list_of_ds)
+        self.return_pair = True
         self.epoch_len = epoch_len
 
     def __getitem__(self, index):
 
-        data = super().__getitem__(index)[0] # Get the data
-        return data
+        pos, neg = index
+        pos_data = []
+        neg_data = []
+
+        assert pos != neg, "pos and neg should not be the same"
+
+        for i in range(-(self.epoch_len // 2), self.epoch_len // 2 + 1):
+            pos_data.append(super().__getitem__(pos + i)[0])
+            neg_data.append(super().__getitem__(neg + i)[0])
+
+        pos_data = np.stack(pos_data, axis=0) # (7, 2, 3000)
+        neg_data = np.stack(neg_data, axis=0) # (7, 2, 3000)
+
+        return pos_data, neg_data
 
 
 class TuneDataset(BaseConcatDataset):
@@ -212,7 +222,139 @@ class TuneDataset(BaseConcatDataset):
         X = super().__getitem__(index)[0]
         y = super().__getitem__(index)[1]
 
-        return X, y    
+        return X, y
+
+
+class RelativePositioningDataset(BaseConcatDataset):
+    """BaseConcatDataset with __getitem__ that expects 2 indices and a target."""
+
+    def __init__(self, list_of_ds, epoch_len=7):
+        super().__init__(list_of_ds)
+        self.return_pair = True
+        self.epoch_len = epoch_len
+
+    def __getitem__(self, index):
+
+        pos, neg = index
+        pos_data = []
+        neg_data = []
+
+        assert pos != neg, "pos and neg should not be the same"
+
+        for i in range(-(self.epoch_len // 2), self.epoch_len // 2 + 1):
+            pos_data.append(super().__getitem__(pos + i)[0])
+            neg_data.append(super().__getitem__(neg + i)[0])
+
+        pos_data = np.stack(pos_data, axis=0) # (7, 2, 3000)
+        neg_data = np.stack(neg_data, axis=0) # (7, 2, 3000)
+
+        return pos_data, neg_data
+
+
+class TuneDataset(BaseConcatDataset):
+    """BaseConcatDataset for train and test"""
+
+    def __init__(self, list_of_ds):
+        super().__init__(list_of_ds)
+
+    def __getitem__(self, index):
+
+        X = super().__getitem__(index)[0]
+        y = super().__getitem__(index)[1]
+
+        return X, y
+
+
+class RecordingSampler(Sampler):
+    def __init__(self, metadata, random_state=None, epoch_len=7):
+
+        self.metadata = metadata
+        self.epoch_len = epoch_len
+        self._init_info()
+        self.rng = check_random_state(random_state)
+
+    def _init_info(self):
+        keys = ["subject", "recording"]
+
+        self.metadata = self.metadata.reset_index().rename(
+            columns={"index": "window_index"}
+        )
+        self.info = (
+            self.metadata.reset_index()
+            .groupby(keys)[["index", "i_start_in_trial"]]
+            .agg(["unique"])
+        )
+        self.info.columns = self.info.columns.get_level_values(0)
+
+    def sample_recording(self):
+        """Return a random recording index."""
+        return self.rng.choice(self.n_recordings)
+            
+    def __iter__(self):
+        raise NotImplementedError
+
+    @property
+    def n_recordings(self):
+        return self.info.shape[0]
+
+
+class RelativePositioningSampler(RecordingSampler):
+    def __init__(
+        self,
+        metadata,
+        tau_pos,
+        tau_neg,
+        same_rec_neg=True,
+        random_state=None,
+        epoch_len=7,
+    ):
+        super().__init__(metadata, random_state=random_state, epoch_len=epoch_len)
+
+        self.tau_pos = tau_pos
+        self.tau_neg = tau_neg
+        self.epoch_len = epoch_len
+        self.same_rec_neg = same_rec_neg
+        self.info['index'] = self.info['index'].apply(lambda x: x[self.epoch_len // 2 : -(self.epoch_len // 2) ])
+        self.info['i_start_in_trial'] = self.info['i_start_in_trial'].apply(lambda x: x[self.epoch_len // 2 : -(self.epoch_len // 2) ])
+        self.info.iloc[-1]['index'] = self.info.iloc[-1]['index'][:-(7 // 2) - 1]
+        self.info.iloc[-1]['i_start_in_trial'] = self.info.iloc[-1]['i_start_in_trial'][: -(self.epoch_len // 2) - 1]
+
+    def _sample_pair(self):
+        
+        """Sample a pair of two windows."""
+        # Sample first window
+        
+        for rec_id in range(self.info.shape[0]):
+            epochs = self.info.iloc[rec_id]["index"]
+            start_trail = self.info.iloc[rec_id]["i_start_in_trial"]
+            for ep_id, trail in zip(epochs, start_trail):
+               
+                win_ind1, rec_ind1 = ep_id, rec_id
+                ts1 = trail
+                ts = self.info.iloc[rec_ind1]["i_start_in_trial"]
+
+                epoch_min = self.info.iloc[rec_ind1]["i_start_in_trial"][self.epoch_len // 2]
+                epoch_max = self.info.iloc[rec_ind1]["i_start_in_trial"][-self.epoch_len // 2]
+
+                if self.same_rec_neg:
+                    mask = ((ts <= ts1 - self.tau_neg) & (ts >= epoch_min)) | (
+                        (ts >= ts1 + self.tau_neg) & (ts <= epoch_max)
+                    )
+                    
+                if sum(mask) == 0:
+                    raise NotImplementedError
+                win_ind2 = self.rng.choice(self.info.iloc[rec_ind1]["index"][mask])
+                yield win_ind1, win_ind2
+
+    def __iter__(self):  
+        yield from self._sample_pair()
+      
+    def __len__(self):
+        epoch_len = 0
+        for rec_id in range(self.info.shape[0]):
+            epoch_len += len(self.info.iloc[rec_id]["index"])
+        return epoch_len
+    
     
 ######################################################################################################################
 
@@ -223,12 +365,14 @@ TEST_PATH = os.path.join(PATH, "test")
 if not os.path.exists(PRETEXT_PATH): os.mkdir(PRETEXT_PATH)
 if not os.path.exists(TEST_PATH): os.mkdir(TEST_PATH)
 
+
 splitted = dict()
 
-splitted["pretext"] = PretextDataset(
+splitted["pretext"] = RelativePositioningDataset(
     [ds for ds in windows_dataset.datasets if ds.description["subject"] in sub_pretext],
     epoch_len = EPOCH_LEN
 )
+
 
 splitted["test"] = [ds for ds in windows_dataset.datasets if ds.description["subject"] in sub_test]
 
@@ -238,14 +382,31 @@ for sub in splitted["test"]:
 
 ########################################################################################################################
 
+
+# Sampler
+tau_pos, tau_neg = int(sfreq * POS_MIN * 60), int(sfreq * NEG_MIN * 60)
+
 print(f'Number of pretext subjects: {len(splitted["pretext"].datasets)}')
+
+pretext_sampler = RelativePositioningSampler(
+    splitted["pretext"].get_metadata(),
+    tau_pos=tau_pos,
+    tau_neg=tau_neg,
+    same_rec_neg=True,
+    random_state=random_state  # Same samples for every iteration of dataloader
+)
+
 
 # Dataloader
 pretext_loader = DataLoader(
     splitted["pretext"],
-    batch_size=BATCH_SIZE
+    batch_size=BATCH_SIZE,
+    sampler=pretext_sampler
 )
+
+print(f'Number of pretext epochs: {len(pretext_loader)}')
 
 for i, arr in tqdm(enumerate(pretext_loader), desc = 'pretext'):
     temp_path = os.path.join(PRETEXT_PATH, str(i) + '.npz')
-    np.savez(temp_path, data = arr.numpy().squeeze(0))
+    np.savez(temp_path, pos = arr[0].numpy().squeeze(0), neg = arr[1].numpy().squeeze(0))
+  

@@ -29,7 +29,7 @@ def evaluate(q_encoder, train_loader, test_loader, device):
             X_val = X_val.float()
             y_val = y_val.long()
             X_val = X_val.to(device)
-            emb_val.extend(q_encoder(X_val, proj="mid").cpu().tolist())
+            emb_val.extend(q_encoder(X_val[:, :1, :], proj="mid").cpu().tolist())
             gt_val.extend(y_val.numpy().flatten())
     emb_val, gt_val = np.array(emb_val), np.array(gt_val)
 
@@ -40,7 +40,7 @@ def evaluate(q_encoder, train_loader, test_loader, device):
             X_test = X_test.float()
             y_test = y_test.long()
             X_test = X_test.to(device)
-            emb_test.extend(q_encoder(X_test, proj="mid").cpu().tolist())
+            emb_test.extend(q_encoder(X_test[:, :1, :], proj="mid").cpu().tolist())
             gt_test.extend(y_test.numpy().flatten())
 
     emb_test, gt_test = np.array(emb_test), np.array(gt_test)
@@ -189,15 +189,16 @@ def Pretext(
             loss.backward()
             optimizer.step()  # only update encoder_q
 
-        if epoch>=40:
-            scheduler.step(sum(all_loss))
-            
-        lr = optimizer.param_groups[0]["lr"]
-        wandb.log({"ssl_lr": lr, "Epoch": epoch})
+            N = 1000
+            if (step + 1) % N == 0:
+                scheduler.step(sum(all_loss[-50:]))
+                lr = optimizer.param_groups[0]["lr"]
+                wandb.log({"ssl_lr": lr, "Epoch": epoch})
+            step += 1
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 
-        if epoch >= 40 and (epoch) % 5 == 0:
+        if epoch >= 30 and (epoch) % 5 == 0:
 
             test_acc, test_f1, test_kappa, bal_acc = kfold_evaluate(
                 q_encoder, test_subjects, device, BATCH_SIZE

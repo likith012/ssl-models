@@ -14,10 +14,10 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 
-PATH = '/scratch/sslkfold/'
+PATH = '/scratch/allsamples/'
 
 # Params
-SAVE_PATH = "simSiam_final.pth"
+SAVE_PATH = "simSiam_sleepedf.pth"
 WEIGHT_DECAY = 1e-4
 BATCH_SIZE = 128
 lr = 5e-4
@@ -46,7 +46,7 @@ set_random_seeds(seed=random_state, cuda=device == "cuda")
 
 
 # Extract number of channels and time steps from dataset
-n_channels, input_size_samples = (2, 3000)
+n_channels, input_size_samples = (1, 3000)
 model = sleep_model(n_channels, input_size_samples, n_dim = N_DIM)
 
 
@@ -72,7 +72,7 @@ class pretext_data(Dataset):
         
         path = self.file_path[index]
         data = np.load(path)
-        pos = data['pos'] #(7, 2, 3000)
+        pos = data['pos'][:, :1, :] #(7, 2, 3000)
         pos_len = len(pos) # 7
         pos = pos[pos_len // 2] # (2, 3000)
         anc = copy.deepcopy(pos)
@@ -129,11 +129,11 @@ test_subjects = list(test_subjects.values())
 ##############################################################################################################################
 
 wb = wandb.init(
-        project="WTM-ssl",
+        project="WTM-BASELINES",
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
         save_code=True,
         entity="sleep-staging",
-        name="simsaim-final, T=0.5",
+        name="simsaim-sleepedf, T=0.5",
     )
 wb.save('ssl-models/simsaim/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

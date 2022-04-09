@@ -14,13 +14,18 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset
 from pl_bolts.models.regression import LogisticRegression
 import pytorch_lightning as pl
-import torch.nn.functional as F
-from torchmetrics.functional import accuracy
 from pl_bolts.datamodules.sklearn_datamodule import SklearnDataset
 from pytorch_lightning.callbacks import EarlyStopping
+import time
+import logging
+import warnings
+
+logging.getLogger("lightning").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore")
+
 
 # Train, test
-def evaluate(q_encoder, train_loader, test_loader, device):
+def evaluate(q_encoder, train_loader, test_loader, device, i):
 
     # eval
     q_encoder.eval()
@@ -33,7 +38,7 @@ def evaluate(q_encoder, train_loader, test_loader, device):
             X_val = X_val.float()
             y_val = y_val.long()
             X_val = X_val.to(device)
-            emb_val.extend(q_encoder(X_val[:, :1, :], proj="mid").cpu().tolist())
+            emb_val.extend(q_encoder(X_val[:, :1, :], proj='mid').cpu().tolist())
             gt_val.extend(y_val.numpy().flatten())
     emb_val, gt_val = np.array(emb_val), np.array(gt_val)
 
@@ -49,37 +54,45 @@ def evaluate(q_encoder, train_loader, test_loader, device):
 
     emb_test, gt_test = np.array(emb_test), np.array(gt_test)
 
-    acc, cm, f1, kappa, bal_acc, gt, pd = task(emb_val, emb_test, gt_val, gt_test)
+    acc, cm, f1, kappa, bal_acc, gt, pd = task(emb_val, emb_test, gt_val, gt_test, i)
 
     q_encoder.train()
     return acc, cm, f1, kappa, bal_acc, gt, pd
 
 
-def task(X_train, X_test, y_train, y_test):
+def task(X_train, X_test, y_train, y_test, i):
     
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
     
+    start = time.time()
+    
     train = SklearnDataset(X_train, y_train)  
-    train = DataLoader(train, batch_size=256, shuffle=True)  
-    class LinModel(LogisticRegression):
-        def training_epoch_end(self,outputs):
+    train = DataLoader(train, batch_size=256, shuffle=True)
+    class LinModel(LogisticRegression): 
+        
+        def training_epoch_end(self, outputs):
             epoch_loss = torch.hstack([x['loss'] for x in outputs]).mean()
             self.log("epoch_loss", epoch_loss)
             
-    model = LinModel(input_dim=128, num_classes=5)
-    early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.00, patience= 15, mode="min", verbose=False)
-    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus=1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=800)
+    model = LinModel(input_dim=256, num_classes=5)
+    
+    early_stop_callback = EarlyStopping(monitor="epoch_loss", patience= 5, mode="min", verbose=False)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], accelerator="cpu", precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
     lin_trainer.fit(model, train)
-    pred = model(X_test).to_numpy()  
+    pred = model(torch.Tensor(X_test)).detach().numpy()
+    pred = np.argmax(pred, axis = 1)
 
     acc = accuracy_score(y_test, pred)
     cm = confusion_matrix(y_test, pred)
     f1 = f1_score(y_test, pred, average="macro")
     kappa = cohen_kappa_score(y_test, pred)
     bal_acc = balanced_accuracy_score(y_test, pred)
-
+    
+    pit = time.time() - start
+    print(f"Took {int(pit // 60)} min:{int(pit % 60)} secs for {i} fold")
+    
     return acc, cm, f1, kappa, bal_acc, y_test, pred
 
 def kfold_evaluate(q_encoder, test_subjects, device, BATCH_SIZE):
@@ -96,9 +109,9 @@ def kfold_evaluate(q_encoder, test_subjects, device, BATCH_SIZE):
         test_subjects_train = [rec for sub in test_subjects_train for rec in sub]
         test_subjects_test = [rec for sub in test_subjects_test for rec in sub]
 
-        train_loader = DataLoader(TuneDataset(test_subjects_train), batch_size=BATCH_SIZE, shuffle=True, num_workers=4, persistent_workers=True)
-        test_loader = DataLoader(TuneDataset(test_subjects_test), batch_size=BATCH_SIZE, shuffle= False, num_workers=4, persistent_workers=True)
-        test_acc, _, test_f1, test_kappa, bal_acc, gt, pd = evaluate(q_encoder, train_loader, test_loader, device)
+        train_loader = DataLoader(TuneDataset(test_subjects_train), batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+        test_loader = DataLoader(TuneDataset(test_subjects_test), batch_size=BATCH_SIZE, shuffle= False, num_workers=4)
+        test_acc, _, test_f1, test_kappa, bal_acc, gt, pd = evaluate(q_encoder, train_loader, test_loader, device, i)
 
         total_acc.append(test_acc)
         total_f1.append(test_f1)
@@ -106,10 +119,10 @@ def kfold_evaluate(q_encoder, test_subjects, device, BATCH_SIZE):
         total_bal_acc.append(bal_acc)
         
         print("+"*50)
-        print(f"Fold{i} acc: {test_acc}")
-        print(f"Fold{i} f1: {test_f1}")
-        print(f"Fold{i} kappa: {test_kappa}")
-        print(f"Fold{i} bal_acc: {bal_acc}")
+        print(f"Fold: {i} acc: {test_acc}")
+        print(f"Fold: {i} f1: {test_f1}")
+        print(f"Fold: {i} kappa: {test_kappa}")
+        print(f"Fold: {i} bal_acc: {bal_acc}")
         print("+"*50)
         i+=1 
 
@@ -172,9 +185,9 @@ def Pretext(
 
     for epoch in range(Epoch):
         
-        print('=========================================================\n')
+        print('=========================================================================================================================\n')
         print("Epoch: {}".format(epoch))
-        print('=========================================================\n')
+        print('=========================================================================================================================\n')
         
         for index, (aug1, aug2) in enumerate(
             tqdm(pretext_loader, desc="pretrain")
@@ -211,7 +224,7 @@ def Pretext(
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 
-        if epoch >= 30 and (epoch) % 5 == 0:
+        if epoch >= 0 and (epoch) % 5 == 0:
 
             test_acc, test_f1, test_kappa, bal_acc = kfold_evaluate(
                 q_encoder, test_subjects, device, BATCH_SIZE

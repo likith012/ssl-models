@@ -12,8 +12,12 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
-
-
+from pl_bolts.models.regression import LogisticRegression
+import pytorch_lightning as pl
+import torch.nn.functional as F
+from torchmetrics.functional import accuracy
+from pl_bolts.datamodules.sklearn_datamodule import SklearnDataset
+from pytorch_lightning.callbacks import EarlyStopping
 
 # Train, test
 def evaluate(q_encoder, train_loader, test_loader, device):
@@ -56,10 +60,19 @@ def task(X_train, X_test, y_train, y_test):
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
-
-    cls = LogisticRegression(penalty='l2', C=1.0, solver="saga", class_weight='balanced', multi_class="multinomial", max_iter= 3000, n_jobs=-1, dual = False, random_state=1234)
-    cls.fit(X_train, y_train)
-    pred = cls.predict(X_test)
+    
+    train = SklearnDataset(X_train, y_train)  
+    train = DataLoader(train, batch_size=256, shuffle=True)  
+    class LinModel(LogisticRegression):
+        def training_epoch_end(self,outputs):
+            epoch_loss = torch.hstack([x['loss'] for x in outputs]).mean()
+            self.log("epoch_loss", epoch_loss)
+            
+    model = LinModel(input_dim=128, num_classes=5)
+    early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.00, patience= 15, mode="min", verbose=False)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus=1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=800)
+    lin_trainer.fit(model, train)
+    pred = model(X_test).to_numpy()  
 
     acc = accuracy_score(y_test, pred)
     cm = confusion_matrix(y_test, pred)

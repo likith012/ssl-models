@@ -44,14 +44,14 @@ def sleep_model(n_channels, input_size_samples, n_dim = 256):
             
             self.proj = nn.Sequential(
                 nn.Linear(self.n_dim, self.n_dim // 2, bias=True),
-#                 nn.BatchNorm1d(self.n_dim // 2),
+                nn.BatchNorm1d(self.n_dim // 2),
                 nn.ReLU(inplace=True),
                 nn.Linear(self.n_dim // 2, self.n_dim // 2, bias=True),
-#                 nn.BatchNorm1d(self.n_dim // 2),
+                nn.BatchNorm1d(self.n_dim // 2),
             )
             self.pred = nn.Sequential(
                 nn.Linear(self.n_dim // 2, self.n_dim // 2, bias=True),
-#                 nn.BatchNorm1d(self.n_dim // 2),
+                nn.BatchNorm1d(self.n_dim // 2),
                 nn.ReLU(inplace=True),
                 nn.Linear(self.n_dim // 2, self.n_dim // 2, bias=True),
             )

@@ -42,31 +42,19 @@ def sleep_model(n_channels, input_size_samples, n_dim = 256):
             self.enc = encoder(n_channels, n_dim)
             self.n_dim = n_dim
             
-            self.proj = nn.Sequential(
+            self.p1 = nn.Sequential(
                 nn.Linear(self.n_dim, self.n_dim // 2, bias=True),
-#                 nn.BatchNorm1d(self.n_dim // 2),
-                nn.ReLU(inplace=True),
-                nn.Linear(self.n_dim // 2, self.n_dim // 2, bias=True),
-#                 nn.BatchNorm1d(self.n_dim // 2),
-            )
-            self.pred = nn.Sequential(
-                nn.Linear(self.n_dim // 2, self.n_dim // 2, bias=True),
-#                 nn.BatchNorm1d(self.n_dim // 2),
                 nn.ReLU(inplace=True),
                 nn.Linear(self.n_dim // 2, self.n_dim // 2, bias=True),
             )
             
-        def forward(self, x, proj_first='mid'):
+        def forward(self, x, proj='mid'):
             x = self.enc(x)
             
-            if proj_first == 'yes':
-                x = self.proj(x)
-                x = self.pred(x)
+            if proj == 'top':
+                x = self.p1(x)
                 return x
-            elif proj_first == 'no':
-                x = self.proj(x)
-                return x
-            elif proj_first == "mid":
+            elif proj == "mid":
                 return x
             else:
                 raise Exception("Fix the projection heads")

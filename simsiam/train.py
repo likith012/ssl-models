@@ -19,6 +19,9 @@ from pytorch_lightning.callbacks import EarlyStopping
 import time
 import logging
 import warnings
+from pytorch_lightning import seed_everything
+
+seed_everything(1234, workers=True)
 
 logging.getLogger("lightning").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore")
@@ -78,10 +81,10 @@ def task(X_train, X_test, y_train, y_test, i):
             
     model = LinModel(input_dim=256, num_classes=5)
     
-    early_stop_callback = EarlyStopping(monitor="epoch_loss", patience= 5, mode="min", verbose=False)
-    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], accelerator="cpu", precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
+    early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.001, patience= 5, mode="min", verbose=False)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
     lin_trainer.fit(model, train)
-    pred = model(torch.Tensor(X_test)).detach().numpy()
+    pred = model(torch.Tensor(X_test)).detach().cpu().numpy()
     pred = np.argmax(pred, axis = 1)
 
     acc = accuracy_score(y_test, pred)
@@ -109,8 +112,8 @@ def kfold_evaluate(q_encoder, test_subjects, device, BATCH_SIZE):
         test_subjects_train = [rec for sub in test_subjects_train for rec in sub]
         test_subjects_test = [rec for sub in test_subjects_test for rec in sub]
 
-        train_loader = DataLoader(TuneDataset(test_subjects_train), batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-        test_loader = DataLoader(TuneDataset(test_subjects_test), batch_size=BATCH_SIZE, shuffle= False, num_workers=4)
+        train_loader = DataLoader(TuneDataset(test_subjects_train), batch_size=BATCH_SIZE, shuffle=True)
+        test_loader = DataLoader(TuneDataset(test_subjects_test), batch_size=BATCH_SIZE, shuffle= False)
         test_acc, _, test_f1, test_kappa, bal_acc, gt, pd = evaluate(q_encoder, train_loader, test_loader, device, i)
 
         total_acc.append(test_acc)

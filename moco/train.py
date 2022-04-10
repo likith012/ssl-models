@@ -19,9 +19,9 @@ from pytorch_lightning.callbacks import EarlyStopping
 import time
 import logging
 import warnings
-from pytorch_lightning import seed_everything
+# from pytorch_lightning import seed_everything
 
-seed_everything(1234, workers=True)
+# seed_everything(1234, workers=True)
 
 logging.getLogger("lightning").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore")
@@ -82,7 +82,7 @@ def task(X_train, X_test, y_train, y_test, i):
     model = LinModel(input_dim=256, num_classes=5)
     
     early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.001, patience= 5, mode="min", verbose=False)
-    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True, deterministic = True)
     lin_trainer.fit(model, train)
     pred = model(torch.Tensor(X_test)).detach().cpu().numpy()
     pred = np.argmax(pred, axis = 1)
@@ -188,10 +188,11 @@ def Pretext(
         optimizer, mode="min", factor=0.2, patience=5
     )
 
-    all_loss, acc_score = [], []
-    pretext_loss = []
+    all_loss = []
 
     for epoch in range(Epoch):
+        
+        pretext_loss = []
         
         print('=========================================================\n')
         print("Epoch: {}".format(epoch))

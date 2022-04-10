@@ -112,7 +112,7 @@ TEST_FILE = [os.path.join(PATH, "test", f) for f in TEST_FILE]
 print(f'Number of pretext files: {len(PRETEXT_FILE)}')
 print(f'Number of test records: {len(TEST_FILE)}')
 
-pretext_loader = DataLoader(pretext_data(PRETEXT_FILE), batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+pretext_loader = DataLoader(pretext_data(PRETEXT_FILE), batch_size=BATCH_SIZE, shuffle=True, num_workers = NUM_WORKERS)
 
 test_records = [np.load(f) for f in TEST_FILE]
 test_subjects = dict()
@@ -130,7 +130,7 @@ test_subjects = list(test_subjects.values())
 
 wb = wandb.init(
         project="WTM-BASELINES",
-        notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4, augmentations_new",
+        notes="Final",
         save_code=True,
         entity="sleep-staging",
         name="simclr-sleepedf, T=1",

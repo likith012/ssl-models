@@ -120,7 +120,7 @@ TEST_FILE = [os.path.join(PATH, "test", f) for f in TEST_FILE]
 print(f'Number of pretext files: {len(PRETEXT_FILE)}')
 print(f'Number of test records: {len(TEST_FILE)}')
 
-pretext_loader = DataLoader(pretext_data(PRETEXT_FILE), batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+pretext_loader = DataLoader(pretext_data(PRETEXT_FILE), batch_size=BATCH_SIZE, shuffle=True)
 
 test_records = [np.load(f) for f in TEST_FILE]
 test_subjects = dict()

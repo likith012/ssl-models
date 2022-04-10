@@ -22,9 +22,10 @@ import warnings
 from pytorch_lightning import seed_everything
 
 seed_everything(1234, workers=True)
+torch.use_deterministic_algorithms(True, warn_only=False)
 
-logging.getLogger("lightning").setLevel(logging.ERROR)
-warnings.filterwarnings("ignore")
+# logging.getLogger("lightning").setLevel(logging.ERROR)
+# warnings.filterwarnings("ignore")
 
 
 # Train, test
@@ -41,7 +42,7 @@ def evaluate(q_encoder, train_loader, test_loader, device, i):
             X_val = X_val.float()
             y_val = y_val.long()
             X_val = X_val.to(device)
-            emb_val.extend(q_encoder(X_val[:, :1, :], proj='mid').cpu().tolist())
+            emb_val.extend(q_encoder(X_val[:, :1, :], proj_first='mid').cpu().tolist())
             gt_val.extend(y_val.numpy().flatten())
     emb_val, gt_val = np.array(emb_val), np.array(gt_val)
 
@@ -52,7 +53,7 @@ def evaluate(q_encoder, train_loader, test_loader, device, i):
             X_test = X_test.float()
             y_test = y_test.long()
             X_test = X_test.to(device)
-            emb_test.extend(q_encoder(X_test[:, :1, :], proj="mid").cpu().tolist())
+            emb_test.extend(q_encoder(X_test[:, :1, :], proj_first="mid").cpu().tolist())
             gt_test.extend(y_test.numpy().flatten())
 
     emb_test, gt_test = np.array(emb_test), np.array(gt_test)
@@ -82,7 +83,7 @@ def task(X_train, X_test, y_train, y_test, i):
     model = LinModel(input_dim=256, num_classes=5)
     
     early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.001, patience= 5, mode="min", verbose=False)
-    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True, deterministic = True)
     lin_trainer.fit(model, train)
     pred = model(torch.Tensor(X_test)).detach().cpu().numpy()
     pred = np.argmax(pred, axis = 1)
@@ -183,10 +184,12 @@ def Pretext(
         optimizer, mode="min", factor=0.2, patience=5
     )
 
-    all_loss, acc_score = [], []
-    pretext_loss = []
+    all_loss = []
+   
 
     for epoch in range(Epoch):
+        
+        pretext_loss = []
         
         print('=========================================================\n')
         print("Epoch: {}".format(epoch))

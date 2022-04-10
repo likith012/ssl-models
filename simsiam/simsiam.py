@@ -17,12 +17,12 @@ from torch.utils.data import DataLoader, Dataset
 PATH = '/scratch/allsamples/'
 
 # Params
-SAVE_PATH = "simSiam_noBN_sleepedf.pth"
+SAVE_PATH = "simSiam_sleepedf.pth"
 WEIGHT_DECAY = 1e-4
 BATCH_SIZE = 128
 lr = 5e-4
 n_epochs = 200
-NUM_WORKERS = 5
+NUM_WORKERS = 6
 N_DIM = 256
 EPOCH_LEN = 7
 
@@ -112,7 +112,7 @@ TEST_FILE = [os.path.join(PATH, "test", f) for f in TEST_FILE]
 print(f'Number of pretext files: {len(PRETEXT_FILE)}')
 print(f'Number of test records: {len(TEST_FILE)}')
 
-pretext_loader = DataLoader(pretext_data(PRETEXT_FILE), batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
+pretext_loader = DataLoader(pretext_data(PRETEXT_FILE), batch_size=BATCH_SIZE, shuffle=True)
 
 test_records = [np.load(f) for f in TEST_FILE]
 test_subjects = dict()
@@ -133,7 +133,7 @@ wb = wandb.init(
         notes="single-epoch, 500 samples, using logistic regression with saga solver, with lr=5e-4",
         save_code=True,
         entity="sleep-staging",
-        name="simsaim-no batch norm in proj, pred-sleepedf, T=0.5",
+        name="simsaim-sleepedf, T=0.5",
     )
 wb.save('ssl-models/simsaim/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)

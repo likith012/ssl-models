@@ -12,9 +12,10 @@ import copy
 import wandb
 import torch
 from torch.utils.data import DataLoader, Dataset
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-
-PATH = '/scratch/allsamples/'
+PATH = '/scratch/sleepkfold_pos_10/'
 
 # Params
 SAVE_PATH = "simclr_sleepedf_final.pth"

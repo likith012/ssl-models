@@ -16,16 +16,18 @@ from pl_bolts.models.regression import LogisticRegression
 import pytorch_lightning as pl
 from pl_bolts.datamodules.sklearn_datamodule import SklearnDataset
 from pytorch_lightning.callbacks import EarlyStopping
+
 import time
 import logging
 import warnings
-# from pytorch_lightning import seed_everything
+from pytorch_lightning import seed_everything
 
-# seed_everything(1234, workers=True)
+seed_everything(1234, workers=True)
 
 logging.getLogger("lightning").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore")
 
+# torch.use_deterministic_algorithms(True, warn_only=False)
 
 # Train, test
 def evaluate(q_encoder, train_loader, test_loader, device, i):
@@ -82,7 +84,7 @@ def task(X_train, X_test, y_train, y_test, i):
     model = LinModel(input_dim=256, num_classes=5)
     
     early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.001, patience= 5, mode="min", verbose=False)
-    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True, deterministic = True)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
     lin_trainer.fit(model, train)
     pred = model(torch.Tensor(X_test)).detach().cpu().numpy()
     pred = np.argmax(pred, axis = 1)
@@ -184,6 +186,7 @@ def Pretext(
     )
 
     all_loss = []
+    scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(Epoch):
         
@@ -204,20 +207,22 @@ def Pretext(
                 aug1.to(device),
                 aug2.to(device),
             )  # (B, 7, 2, 3000)  (B, 7, 2, 3000) (B, 7, 2, 3000)
-        
-            anc1_features = q_encoder(aug1, proj = 'top') #(B, 128)
-            pos1_features = q_encoder(aug2, proj = 'top')  # (B, 128)
             
-            # backprop
-            loss = criterion(anc1_features, pos1_features)
+            with torch.cuda.amp.autocast():
+                anc1_features = q_encoder(aug1, proj = 'top') #(B, 128)
+                pos1_features = q_encoder(aug2, proj = 'top')  # (B, 128)
+
+                # backprop
+                loss = criterion(anc1_features, pos1_features)
 
             # loss back
             all_loss.append(loss.item())
             pretext_loss.append(loss.cpu().detach().item())
 
             optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()  # only update encoder_q
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             N = 1000
             if (step + 1) % N == 0:

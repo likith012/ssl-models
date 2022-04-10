@@ -16,16 +16,13 @@ from pl_bolts.models.regression import LogisticRegression
 import pytorch_lightning as pl
 from pl_bolts.datamodules.sklearn_datamodule import SklearnDataset
 from pytorch_lightning.callbacks import EarlyStopping
+
 import time
 import logging
 import warnings
-from pytorch_lightning import seed_everything
 
-seed_everything(1234, workers=True)
-torch.use_deterministic_algorithms(True, warn_only=False)
-
-# logging.getLogger("lightning").setLevel(logging.ERROR)
-# warnings.filterwarnings("ignore")
+logging.getLogger("lightning").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore")
 
 
 # Train, test
@@ -83,7 +80,7 @@ def task(X_train, X_test, y_train, y_test, i):
     model = LinModel(input_dim=256, num_classes=5)
     
     early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.001, patience= 5, mode="min", verbose=False)
-    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True, deterministic = True)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus = 1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
     lin_trainer.fit(model, train)
     pred = model(torch.Tensor(X_test)).detach().cpu().numpy()
     pred = np.argmax(pred, axis = 1)
@@ -185,15 +182,14 @@ def Pretext(
     )
 
     all_loss = []
-   
 
     for epoch in range(Epoch):
         
         pretext_loss = []
         
-        print('=========================================================\n')
+        print('=========================================================================================================================\n')
         print("Epoch: {}".format(epoch))
-        print('=========================================================\n')
+        print('=========================================================================================================================\n')
         
         for index, (aug1, aug2) in enumerate(
             tqdm(pretext_loader, desc="pretrain")
@@ -233,7 +229,7 @@ def Pretext(
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 
-        if epoch >= 40 and (epoch) % 5 == 0:
+        if epoch >= 20 and (epoch) % 5 == 0:
 
             test_acc, test_f1, test_kappa, bal_acc = kfold_evaluate(
                 q_encoder, test_subjects, device, BATCH_SIZE

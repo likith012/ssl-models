@@ -20,14 +20,10 @@ from pytorch_lightning.callbacks import EarlyStopping
 import time
 import logging
 import warnings
-from pytorch_lightning import seed_everything
-
-seed_everything(1234, workers=True)
 
 logging.getLogger("lightning").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore")
 
-# torch.use_deterministic_algorithms(True, warn_only=False)
 
 # Train, test
 def evaluate(q_encoder, train_loader, test_loader, device, i):
@@ -186,7 +182,6 @@ def Pretext(
     )
 
     all_loss = []
-    scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(Epoch):
         
@@ -207,22 +202,20 @@ def Pretext(
                 aug1.to(device),
                 aug2.to(device),
             )  # (B, 7, 2, 3000)  (B, 7, 2, 3000) (B, 7, 2, 3000)
-            
-            with torch.cuda.amp.autocast():
-                anc1_features = q_encoder(aug1, proj = 'top') #(B, 128)
-                pos1_features = q_encoder(aug2, proj = 'top')  # (B, 128)
+           
+            anc1_features = q_encoder(aug1, proj = 'top') #(B, 128)
+            pos1_features = q_encoder(aug2, proj = 'top')  # (B, 128)
 
-                # backprop
-                loss = criterion(anc1_features, pos1_features)
+            # backprop
+            loss = criterion(anc1_features, pos1_features)
 
             # loss back
             all_loss.append(loss.item())
             pretext_loss.append(loss.cpu().detach().item())
 
             optimizer.zero_grad()
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            loss.backward()
+            optimizer.step()
 
             N = 1000
             if (step + 1) % N == 0:
@@ -233,7 +226,7 @@ def Pretext(
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 
-        if epoch >= 0 and (epoch) % 1 == 0:
+        if epoch >= 10 and (epoch) % 5 == 0:
 
             test_acc, test_f1, test_kappa, bal_acc = kfold_evaluate(
                 q_encoder, test_subjects, device, BATCH_SIZE

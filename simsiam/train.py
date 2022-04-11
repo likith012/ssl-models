@@ -212,13 +212,12 @@ def Pretext(
             # backprop
             loss = criterion(pred1, pred2, proj1, proj2)
 
-            # loss back
-            all_loss.append(loss.item())
-            pretext_loss.append(loss.cpu().detach().item())
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()  # only update encoder_q
+            
+            all_loss.append(loss.detach().cpu().item())
+            pretext_loss.append(loss.detach().cpu().item())
 
             N = 1000
             if (step + 1) % N == 0:

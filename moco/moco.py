@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 
 def main():
 
-    PATH = '/scratch/allsamples/'
+    PATH = '/scratch/sleepkfold_allsamples/'
 
     # Params
     SAVE_PATH = "mocov2_sleepedf_final.pth"
@@ -138,4 +138,6 @@ def main():
     
     
 if __name__ == "__main__":
+    
+    os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     main()

@@ -214,10 +214,6 @@ def Pretext(
             # backprop
             loss = criterion(anchor, positive, queue)
 
-            # loss back
-            all_loss.append(loss.item())
-            pretext_loss.append(loss.cpu().detach().item())
-
             # Updating queue
             if queue.shape[0] == n_queue:
                 queue = torch.roll(queue, -positive.shape[0], 0)
@@ -229,6 +225,9 @@ def Pretext(
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()  # only update encoder_q
+            
+            all_loss.append(loss.detach().cpu().item())
+            pretext_loss.append(loss.detach().cpu().item())
 
             # exponential moving average (EMA)
             for param_q, param_k in zip(q_encoder.parameters(), k_encoder.parameters()):
@@ -243,7 +242,7 @@ def Pretext(
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 
-        if epoch >= 40 and (epoch) % 5 == 0:
+        if epoch >= 0 and (epoch) % 5 == 0:
 
             test_acc, test_f1, test_kappa, bal_acc = kfold_evaluate(
                 q_encoder, test_subjects, device, BATCH_SIZE

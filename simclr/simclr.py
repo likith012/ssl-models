@@ -20,7 +20,7 @@ def main():
     # Params
     SAVE_PATH = "simclr_sleepedf_final.pth"
     WEIGHT_DECAY = 1e-4
-    BATCH_SIZE = 128 * 4
+    BATCH_SIZE = 128
     lr = 5e-4
     n_epochs = 200
     NUM_WORKERS = 6

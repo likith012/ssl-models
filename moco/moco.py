@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 
 def main():
 
-    PATH = '/scratch/sleepkfold_allsamples/'
+    PATH = '/scratch/allsamples/'
 
     # Params
     SAVE_PATH = "mocov2_sleepedf_final.pth"

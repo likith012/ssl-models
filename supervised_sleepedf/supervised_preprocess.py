@@ -203,7 +203,7 @@ class RelativePositioningDataset(BaseConcatDataset):
 
         for i in range(-(self.epoch_len // 2), self.epoch_len // 2 + 1):
             pos_data.append(super().__getitem__(pos + i)[0])
-            neg_data.append(super().__getitem__(neg + i)[0])
+            neg_data.append(super().__getitem__(pos + i)[1])
 
         pos_data = np.stack(pos_data, axis=0) # (7, 2, 3000)
         neg_data = np.stack(neg_data, axis=0) # (7, 2, 3000)
@@ -224,45 +224,6 @@ class TuneDataset(BaseConcatDataset):
 
         return X, y
 
-
-class RelativePositioningDataset(BaseConcatDataset):
-    """BaseConcatDataset with __getitem__ that expects 2 indices and a target."""
-
-    def __init__(self, list_of_ds, epoch_len=7):
-        super().__init__(list_of_ds)
-        self.return_pair = True
-        self.epoch_len = epoch_len
-
-    def __getitem__(self, index):
-
-        pos, neg = index
-        pos_data = []
-        neg_data = []
-
-        assert pos != neg, "pos and neg should not be the same"
-
-        for i in range(-(self.epoch_len // 2), self.epoch_len // 2 + 1):
-            pos_data.append(super().__getitem__(pos + i)[0])
-            neg_data.append(super().__getitem__(neg + i)[0])
-
-        pos_data = np.stack(pos_data, axis=0) # (7, 2, 3000)
-        neg_data = np.stack(neg_data, axis=0) # (7, 2, 3000)
-
-        return pos_data, neg_data
-
-
-class TuneDataset(BaseConcatDataset):
-    """BaseConcatDataset for train and test"""
-
-    def __init__(self, list_of_ds):
-        super().__init__(list_of_ds)
-
-    def __getitem__(self, index):
-
-        X = super().__getitem__(index)[0]
-        y = super().__getitem__(index)[1]
-
-        return X, y
 
 
 class RecordingSampler(Sampler):
@@ -359,8 +320,8 @@ class RelativePositioningSampler(RecordingSampler):
 ######################################################################################################################
 
 
-PRETEXT_PATH = os.path.join(PATH, "pretext")
-TEST_PATH = os.path.join(PATH, "test")
+PRETEXT_PATH = os.path.join(PATH, "pretext_supervised")
+TEST_PATH = os.path.join(PATH, "test_supervised")
 
 if not os.path.exists(PRETEXT_PATH): os.mkdir(PRETEXT_PATH)
 if not os.path.exists(TEST_PATH): os.mkdir(TEST_PATH)
@@ -368,10 +329,10 @@ if not os.path.exists(TEST_PATH): os.mkdir(TEST_PATH)
 
 splitted = dict()
 
-splitted["pretext"] = RelativePositioningDataset(
-    [ds for ds in windows_dataset.datasets if ds.description["subject"] in sub_pretext],
-    epoch_len = EPOCH_LEN
-)
+#splitted["pretext"] = RelativePositioningDataset(
+#    [ds for ds in windows_dataset.datasets if ds.description["subject"] in sub_pretext],
+#    epoch_len = EPOCH_LEN
+#)
 
 
 splitted["test"] = [ds for ds in windows_dataset.datasets if ds.description["subject"] in sub_test]
@@ -380,33 +341,38 @@ for sub in splitted["test"]:
     temp_path = os.path.join(TEST_PATH, str(sub.description["subject"]) + str(sub.description["recording"])+'.npz')
     np.savez(temp_path, **sub.__dict__)
 
+splitted["pretext"] = [ds for ds in windows_dataset.datasets if ds.description["subject"] in sub_pretext]
+
+for sub in splitted["pretext"]:
+    temp_path = os.path.join(PRETEXT_PATH, str(sub.description["subject"]) + str(sub.description["recording"])+'.npz')
+    np.savez(temp_path, **sub.__dict__)
+
 ########################################################################################################################
 
 
 # Sampler
-tau_pos, tau_neg = int(sfreq * POS_MIN * 60), int(sfreq * NEG_MIN * 60)
-
-print(f'Number of pretext subjects: {len(splitted["pretext"].datasets)}')
-
-pretext_sampler = RelativePositioningSampler(
-    splitted["pretext"].get_metadata(),
-    tau_pos=tau_pos,
-    tau_neg=tau_neg,
-    same_rec_neg=True,
-    random_state=random_state  # Same samples for every iteration of dataloader
-)
-
-
-# Dataloader
-pretext_loader = DataLoader(
-    splitted["pretext"],
-    batch_size=BATCH_SIZE,
-    sampler=pretext_sampler
-)
-
-print(f'Number of pretext epochs: {len(pretext_loader)}')
-
-for i, arr in tqdm(enumerate(pretext_loader), desc = 'pretext'):
-    temp_path = os.path.join(PRETEXT_PATH, str(i) + '.npz')
-    np.savez(temp_path, pos = arr[0].numpy().squeeze(0), neg = arr[1].numpy().squeeze(0))
-  
+#tau_pos, tau_neg = int(sfreq * POS_MIN * 60), int(sfreq * NEG_MIN * 60)
+#
+#print(f'Number of pretext subjects: {len(splitted["pretext"].datasets)}')
+#
+#pretext_sampler = RelativePositioningSampler(
+#    splitted["pretext"].get_metadata(),
+#    tau_pos=tau_pos,
+#    tau_neg=tau_neg,
+#    same_rec_neg=True,
+#    random_state=random_state  # Same samples for every iteration of dataloader
+#)
+#
+#
+## Dataloader
+#pretext_loader = DataLoader(
+#    splitted["pretext"],
+#    batch_size=BATCH_SIZE,
+#    sampler=pretext_sampler
+#)
+#
+#print(f'Number of pretext epochs: {len(pretext_loader)}')
+#
+#for i, arr in tqdm(enumerate(pretext_loader), desc = 'pretext'):
+#    temp_path = os.path.join(PRETEXT_PATH, str(i) + '.npz')
+#    np.savez(temp_path, x= arr[0].numpy().squeeze(0), y= arr[1].numpy().squeeze(0))

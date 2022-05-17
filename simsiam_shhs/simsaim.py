@@ -14,10 +14,10 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 
-PATH = '/scratch/shhs/'
+PATH = '/scratch/allsamples_shhs/'
 
 # Params
-SAVE_PATH = "simsiam-shhs-sliding-one-channel.pth"
+SAVE_PATH = "simsiam-shhs-final.pth"
 WEIGHT_DECAY = 1e-4
 BATCH_SIZE = 128
 lr = 5e-4
@@ -83,24 +83,6 @@ class pretext_data(Dataset):
         anc = augment(anc)
         return anc, pos
     
-class train_data(Dataset):
-
-    def __init__(self, filepath):
-        
-        self.file_path = filepath
-        self.idx = np.array(range(len(self.file_path)))
-
-    def __len__(self):
-        return len(self.file_path)
-
-    def __getitem__(self, index):
-        
-        path = self.file_path[index]
-        data = np.load(path)
-        
-        return data['x'], data['y']
-    
-    
 
 PRETEXT_FILE = os.listdir(os.path.join(PATH, "pretext"))
 PRETEXT_FILE.sort(key=natural_keys)
@@ -110,6 +92,10 @@ print(f'Number of pretext files: {len(PRETEXT_FILE)}')
 
 pretext_loader = DataLoader(pretext_data(PRETEXT_FILE), batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
 
+
+TEST_FILE = os.listdir(os.path.join(PATH, "test"))
+TEST_FILE = [os.path.join(PATH, "test", f) for f in TEST_FILE]
+test_subjects = [np.load(file) for file in TEST_FILE]
 
 ##############################################################################################################################
 
@@ -123,6 +109,6 @@ wb = wandb.init(
 wb.save('ssl-models/simsaim_shhs/*.py')
 wb.watch([q_encoder],log='all',log_freq=500)
 
-Pretext(q_encoder, optimizer, n_epochs, criterion, pretext_loader, wb, device, SAVE_PATH, BATCH_SIZE,PATH)
+Pretext(q_encoder, optimizer, n_epochs, criterion, pretext_loader,test_subjects, wb, device, SAVE_PATH, BATCH_SIZE)
 
 wb.finish()

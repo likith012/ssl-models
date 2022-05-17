@@ -12,12 +12,23 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
-from braindecode.datautil.preprocess import zscore
+from pl_bolts.models.regression import LogisticRegression
+import pytorch_lightning as pl
+from pl_bolts.datamodules.sklearn_datamodule import SklearnDataset
+from pytorch_lightning.callbacks import EarlyStopping
+from copy import deepcopy
+
+import time
+import logging
+import warnings
+
+logging.getLogger("lightning").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore")
 
 
 
 # Train, test
-def evaluate(q_encoder, train_loader, test_loader, device):
+def evaluate(q_encoder, train_loader, test_loader,device, i):
 
     # eval
     q_encoder.eval()
@@ -46,45 +57,63 @@ def evaluate(q_encoder, train_loader, test_loader, device):
 
     emb_test, gt_test = np.array(emb_test), np.array(gt_test)
 
-    acc, cm, f1, kappa, bal_acc, gt, pd = task(emb_val, emb_test, gt_val, gt_test)
+    acc, cm, f1, kappa, bal_acc, gt, pd = task(emb_val, emb_test, gt_val, gt_test,i)
 
     q_encoder.train()
     return acc, cm, f1, kappa, bal_acc, gt, pd
 
 
-def task(X_train, X_test, y_train, y_test):
+def task(X_train, X_test, y_train, y_test,i):
     
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
-
-    cls = LogisticRegression(penalty='l2', C=1.0, solver="saga", class_weight='balanced', multi_class="multinomial", max_iter= 3000, n_jobs=-1, dual = False, random_state=1234)
-    cls.fit(X_train, y_train)
-    pred = cls.predict(X_test)
+    
+    start = time.time()
+    
+    train = SklearnDataset(X_train, y_train)  
+    train = DataLoader(train, batch_size=256, shuffle=True)
+    class LinModel(LogisticRegression): 
+        
+        def training_epoch_end(self, outputs):
+            epoch_loss = torch.hstack([x['loss'] for x in outputs]).mean()
+            self.log("epoch_loss", epoch_loss)
+            
+    model = LinModel(input_dim=256, num_classes=5)
+    
+    early_stop_callback = EarlyStopping(monitor="epoch_loss", min_delta=0.001, patience= 5, mode="min", verbose=False)
+    lin_trainer = pl.Trainer(callbacks=[early_stop_callback], gpus=1, precision=16, num_sanity_val_steps=0, enable_checkpointing=False, max_epochs=500, auto_lr_find=True)
+    lin_trainer.fit(model, train)
+    pred = model(torch.Tensor(X_test)).detach().cpu().numpy()
+    pred = np.argmax(pred, axis = 1)
 
     acc = accuracy_score(y_test, pred)
     cm = confusion_matrix(y_test, pred)
     f1 = f1_score(y_test, pred, average="macro")
     kappa = cohen_kappa_score(y_test, pred)
     bal_acc = balanced_accuracy_score(y_test, pred)
+    
+    pit = time.time() - start
+    print(f"Took {int(pit // 60)} min:{int(pit % 60)} secs for {i} fold")
 
     return acc, cm, f1, kappa, bal_acc, y_test, pred
 
-def kfold_evaluate(q_encoder, test_subjects, device, BATCH_SIZE):
+def kfold_evaluate(q_encoder, test_subjects,device, BATCH_SIZE):
 
     kfold = KFold(n_splits=5, shuffle=True, random_state=1234)
 
     total_acc, total_f1, total_kappa, total_bal_acc = [], [], [], []
     i = 1
-
+    
+    
     for train_idx, test_idx in kfold.split(test_subjects):
 
         test_subjects_train = [test_subjects[i] for i in train_idx]
         test_subjects_test = [test_subjects[i] for i in test_idx]
 
-        train_loader = DataLoader(TuneDataset(test_subjects_train), batch_size=BATCH_SIZE, shuffle=True, num_workers=4, persistent_workers=True)
-        test_loader = DataLoader(TuneDataset(test_subjects_test), batch_size=BATCH_SIZE, shuffle= False, num_workers=4, persistent_workers=True)
-        test_acc, _, test_f1, test_kappa, bal_acc, gt, pd = evaluate(q_encoder, train_loader, test_loader, device)
+        train_loader = DataLoader(TuneDataset(test_subjects_train), batch_size=BATCH_SIZE, shuffle=True)
+        test_loader = DataLoader(TuneDataset(test_subjects_test), batch_size=BATCH_SIZE, shuffle= False)
+        test_acc, _, test_f1, test_kappa, bal_acc, gt, pd = evaluate(q_encoder, train_loader, test_loader,device, i)
 
         total_acc.append(test_acc)
         total_f1.append(test_f1)
@@ -121,7 +150,7 @@ class TuneDataset(Dataset):
         self.X = []
         self.y = []
         for subject in self.subjects:
-            self.X.append(zscore(subject['windows']))
+            self.X.append(np.expand_dims(subject['x'][:,0],axis=1))
             self.y.append(subject['y'])
         self.X = np.concatenate(self.X, axis=0)
         self.y = np.concatenate(self.y, axis=0)
@@ -153,11 +182,11 @@ def Pretext(
         optimizer, mode="min", factor=0.2, patience=5
     )
 
-    acc_score = []
-    pretext_loss = []
+
+    scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(Epoch):
-        
+        pretext_loss = []        
         print('=========================================================\n')
         print("Epoch: {}".format(epoch))
         print('=========================================================\n')
@@ -174,27 +203,29 @@ def Pretext(
                 aug2.to(device),
             )  # (B, 7, 2, 3000)  (B, 7, 2, 3000) (B, 7, 2, 3000)
         
-            anc1_features = q_encoder(aug1, proj = 'top') #(B, 128)
-            pos1_features = q_encoder(aug2, proj = 'top')  # (B, 128)
-            
-            # backprop
-            loss = criterion(anc1_features, pos1_features)
+            with torch.cuda.amp.autocast():           
+                
+                aug1_features.append(q_encoder(aug1[:, i], proj='top')) #(B, 128)
+                aug2_features.append(q_encoder(aug2[:, i], proj='top'))  # (B, 128)
 
+                loss = criterion(aug1_features,aug2_features)
+                
+            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             # loss back
             all_loss.append(loss.item())
             pretext_loss.append(loss.cpu().detach().item())
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()  # only update encoder_q
 
-        scheduler.step(np.mean(all_loss))
+        scheduler.step(sum(all_loss[-50:]))
         lr = optimizer.param_groups[0]["lr"]
         wandb.log({"ssl_lr": lr, "Epoch": epoch})
 
         wandb.log({"ssl_loss": np.mean(pretext_loss), "Epoch": epoch})
 
-        if epoch >=30 and (epoch) % 5 == 0:
+        if epoch >=60 and (epoch) % 5 == 0:
             
             test_acc, test_f1, test_kappa, bal_acc = kfold_evaluate(
                 q_encoder, test_subjects, device, BATCH_SIZE
@@ -210,3 +241,4 @@ def Pretext(
                 torch.save(q_encoder.enc.state_dict(), SAVE_PATH)
                 wandb.save(SAVE_PATH)
                 print("save best model on test set with best F1 score")
+
